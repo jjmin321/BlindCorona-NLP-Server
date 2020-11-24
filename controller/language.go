@@ -19,7 +19,7 @@ type Text struct {
 // Analyze method return analyzed result of text
 func Analyze(c echo.Context) error {
 	location := "전국"
-	var date []string
+	var date string
 	ctx := context.Background()
 	client, err := language.NewClient(ctx)
 	if err != nil {
@@ -44,17 +44,17 @@ func Analyze(c echo.Context) error {
 		if v.Type.String() == "LOCATION" {
 			location = v.Name
 		} else if v.Type.String() == "DATE" {
-			date = append(date, v.Name)
+			date = v.Name
 		} else if strings.Contains(u.Text, "어제") {
 			now := time.Now()
 			convHours, _ := time.ParseDuration("24h")
 			custom := now.Add(-convHours).Format("2006년 01월 02일")
-			date = append(date, custom)
+			date = custom
 			u.Text = strings.Replace(u.Text, "어제", "", 1)
 		} else if strings.Contains(u.Text, "오늘") {
 			now := time.Now()
 			custom := now.Format("2006년 01월 02일")
-			date = append(date, custom)
+			date = custom
 			u.Text = strings.Replace(u.Text, "오늘", "", 1)
 		}
 	}
