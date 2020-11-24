@@ -2,7 +2,10 @@ package controller
 
 import (
 	"context"
+	"log"
+	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	language "cloud.google.com/go/language/apiv1"
@@ -15,14 +18,70 @@ type Text struct {
 	Text string `json:"text" form:"text" query:"text"`
 }
 
-// Reset Default Value
+// Set Default Value
 var (
 	location = "전국"
-	date     = "오늘"
+	date     string
+	wg       sync.WaitGroup
 )
+
+// ResetData reset Default Value
+func ResetData() {
+	location = "전국"
+	date = ""
+}
+
+// RecoverServer recover server
+func RecoverServer() {
+	err := recover()
+	if err != nil {
+		log.Print("Recovered", err)
+		debug.PrintStack()
+	}
+}
+
+// Analyze method return analyzed result of text
+func Analyze(c echo.Context) error {
+	ResetData()
+	u := new(Text)
+	if err := c.Bind(u); err != nil {
+		return err
+	}
+	u.Text = CheckDate(u.Text)
+	wg.Add(1)
+	go CheckEntities(u.Text)
+	if location == "전국" {
+		CheckAllWord(u.Text)
+	}
+	wg.Wait()
+	return c.JSON(200, map[string]interface{}{
+		"status":   200,
+		"Location": location,
+		"Date":     date,
+	})
+}
+
+// CheckDate method set Date if text has 어제 or 오늘
+func CheckDate(Text string) string {
+	if strings.ContainsAny(Text, "어제") {
+		now := time.Now()
+		convHours, _ := time.ParseDuration("24h")
+		custom := now.Add(-convHours).Format("20060102")
+		date = custom
+		Text = strings.Replace(Text, "어제", "", 1)
+	} else if strings.ContainsAny(Text, "오늘") {
+		now := time.Now()
+		custom := now.Format("20060102")
+		date = custom
+		Text = strings.Replace(Text, "오늘", "", 1)
+	}
+	return Text
+}
 
 // CheckEntities method Check Location and Date
 func CheckEntities(Text string) {
+	defer wg.Done()
+	defer RecoverServer()
 	ctx := context.Background()
 	client, _ := language.NewClient(ctx)
 	entities, _ := client.AnalyzeEntities(ctx, &languagepb.AnalyzeEntitiesRequest{
@@ -58,35 +117,13 @@ func CheckEntities(Text string) {
 	}
 }
 
-// CheckDate method set Date if text has 어제 or 오늘
-func CheckDate(Text string) string {
-	if strings.ContainsAny(Text, "어제") {
-		now := time.Now()
-		convHours, _ := time.ParseDuration("24h")
-		custom := now.Add(-convHours).Format("20060102")
-		date = custom
-		Text = strings.Replace(Text, "어제", "", 1)
-	} else if strings.ContainsAny(Text, "오늘") {
-		now := time.Now()
-		custom := now.Format("20060102")
-		date = custom
-		Text = strings.Replace(Text, "오늘", "", 1)
+// CheckAllWord method Range All Word for search Location
+func CheckAllWord(Text string) {
+	word := strings.Split(Text, " ")
+	for i := 0; i < len(word); i++ {
+		if word[i] != "" {
+			wg.Add(1)
+			go CheckEntities(word[i])
+		}
 	}
-	return Text
-}
-
-// Analyze method return analyzed result of text
-func Analyze(c echo.Context) error {
-	u := new(Text)
-	if err := c.Bind(u); err != nil {
-		return err
-	}
-	u.Text = CheckDate(u.Text)
-	CheckEntities(u.Text)
-
-	return c.JSON(200, map[string]interface{}{
-		"status":   200,
-		"Location": location,
-		"Date":     date,
-	})
 }
