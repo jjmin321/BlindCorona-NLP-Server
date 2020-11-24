@@ -48,12 +48,12 @@ func Analyze(c echo.Context) error {
 		} else if strings.Contains(u.Text, "어제") {
 			now := time.Now()
 			convHours, _ := time.ParseDuration("24h")
-			custom := now.Add(-convHours).Format("2006년 01월 02일")
+			custom := now.Add(-convHours).Format("20060102")
 			date = custom
 			u.Text = strings.Replace(u.Text, "어제", "", 1)
 		} else if strings.Contains(u.Text, "오늘") {
 			now := time.Now()
-			custom := now.Format("2006년 01월 02일")
+			custom := now.Format("20060102")
 			date = custom
 			u.Text = strings.Replace(u.Text, "오늘", "", 1)
 		}
