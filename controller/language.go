@@ -47,6 +47,7 @@ func Analyze(c echo.Context) error {
 	if err := c.Bind(u); err != nil {
 		return err
 	}
+	u.Text = strings.Trim(u.Text, "안녕")
 	u.Text = CheckDate(u.Text)
 	wg.Add(1)
 	go CheckEntities(u.Text)
