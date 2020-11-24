@@ -40,37 +40,46 @@ func Analyze(c echo.Context) error {
 		EncodingType: languagepb.EncodingType_UTF8,
 	})
 
+	if strings.ContainsAny(u.Text, "어제") {
+		now := time.Now()
+		convHours, _ := time.ParseDuration("24h")
+		custom := now.Add(-convHours).Format("20060102")
+		date = custom
+		u.Text = strings.Replace(u.Text, "어제", "", 1)
+	} else if strings.ContainsAny(u.Text, "오늘") {
+		now := time.Now()
+		custom := now.Format("20060102")
+		date = custom
+		u.Text = strings.Replace(u.Text, "오늘", "", 1)
+	}
+
+	log.Print(u.Text)
 	for _, v := range entities.Entities {
 		if v.Type.String() == "LOCATION" {
 			location = v.Name
 		} else if v.Type.String() == "DATE" {
-			date = v.Name
-		} else if strings.Contains(u.Text, "어제") {
-			now := time.Now()
-			convHours, _ := time.ParseDuration("24h")
-			custom := now.Add(-convHours).Format("20060102")
-			date = custom
-			u.Text = strings.Replace(u.Text, "어제", "", 1)
-		} else if strings.Contains(u.Text, "오늘") {
-			now := time.Now()
-			custom := now.Format("20060102")
-			date = custom
-			u.Text = strings.Replace(u.Text, "오늘", "", 1)
+			var year, month, day string
+			s1 := strings.Split(v.Name, "년 ")
+			year = s1[0]
+			s2 := strings.Split(s1[1], "월 ")
+			if len(s2[0]) == 1 {
+				month = "0" + s2[0]
+			} else {
+				month = s2[0]
+			}
+			s3 := strings.Split(s2[1], "일")
+			if len(s3[0]) == 1 {
+				day = "0" + s3[0]
+			} else {
+				day = s3[0]
+			}
+			date = year + month + day
 		}
-	}
-
-	if err != nil {
-		log.Fatalf("Failed to analyze text: %v", err)
-		return c.JSON(500, map[string]interface{}{
-			"status":  500,
-			"message": "텍스트 분석 중에 오류가 생겼습니다",
-		})
 	}
 
 	return c.JSON(200, map[string]interface{}{
 		"status":   200,
 		"Location": location,
 		"Date":     date,
-		// "Entities": entities.Entities,
 	})
 }
